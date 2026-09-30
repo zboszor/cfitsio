@@ -186,7 +186,7 @@ BISON =		bison
 
 # Tested with bison 3.8 and flex 2.6.4
 eval:		# Rebuild eval_* files from flex/bison source
-		${FLEX} -o eval_l.c eval.l 
+		${FLEX} -o eval_l.c eval.l
 		${BISON} -o eval_y.c --header=eval_tab.h eval.y
 
 # Distribution: ==========================================================
@@ -202,6 +202,9 @@ EXTRA_DIST = $(F77_WRAPPERS) ${GSIFTP_SRC} \
 	iter_a.f iter_a.fit iter_b.f iter_b.fit iter_c.f iter_c.fit \
 	run-testprog \
 	sample.tpl \
+	tests/coverage-test \
+	tests/test_macros.h \
+	tests/tests.am \
 	testf77.out testf77.std \
 	testprog.out testprog.std testprog.tpt \
 	utilities/fitsverify.c
@@ -210,12 +213,19 @@ EXTRA_DIST = $(F77_WRAPPERS) ${GSIFTP_SRC} \
 
 # check: =================================================================
 
+CLEANFILES =
 TESTS = run-testprog
-AM_TESTS_ENVIRONMENT = srcdir='$(srcdir)'
+include $(srcdir)/tests/tests.am
+
+AM_TESTS_ENVIRONMENT = srcdir='$(srcdir)' BUILD_REENTRANT='@BUILD_REENTRANT@'
 
 # clean: =================================================================
 
-CLEANFILES = testprog.fit testprog.lis testf77.fit atestfil.fit btestfil.fit y.output
+CLEANFILES += testprog.fit testprog.lis testf77.fit atestfil.fit btestfil.fit y.output \
+	*.gcno *.gcda *.gcov \
+	.libs/*.gcno .libs/*.gcda \
+	tests/*.gcno tests/*.gcda \
+	utilities/*.gcno utilities/*.gcda
 
 # HEASoft packages fitsTcl and POW need a list of all .o files: ==========
 

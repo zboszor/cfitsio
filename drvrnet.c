@@ -428,6 +428,7 @@ int http_compress_open(char *url, int rwmode, int *handle)
   char contentencoding[SHORTLEN], contenttype[SHORTLEN];
   char errorstr[MAXLEN];
   char recbuf[MAXLEN];
+  char *tstEnv=0;
   long len;
   int contentlength;
   int ii, flen, status;
@@ -476,6 +477,18 @@ int http_compress_open(char *url, int rwmode, int *handle)
   }
 
   closehttpfile++;
+
+  tstEnv = getenv("CFITSIO_DISABLE_COPY_RESTRICT");
+  if (!tstEnv || tstEnv[0] != '1')
+  {
+     if (!check_is_file_fits(httpfile))
+     {
+       ffpmsg("Input file is not a FITS file.  Cannot create output file (http_file_open)");
+       ffpmsg(netoutfile);
+       goto error;
+     }
+  }  
+
 
   /* Better be compressed */
 
@@ -593,6 +606,7 @@ int http_file_open(char *url, int rwmode, int *handle)
   char contentencoding[SHORTLEN], contenttype[SHORTLEN];
   char errorstr[MAXLEN];
   char recbuf[MAXLEN];
+  char *tstEnv=0;
   long len;
   int contentlength;
   int ii, flen, status;
@@ -641,6 +655,17 @@ int http_file_open(char *url, int rwmode, int *handle)
   }
 
   closehttpfile++;
+  
+  tstEnv = getenv("CFITSIO_DISABLE_COPY_RESTRICT");
+  if (!tstEnv || tstEnv[0] != '1')
+  {
+     if (!check_is_file_fits(httpfile))
+     {
+       ffpmsg("Input file is not a FITS file.  Cannot create output file (http_file_open)");
+       ffpmsg(netoutfile);
+       goto error;
+     }
+  }  
 
   if (*netoutfile == '!')
   {
@@ -804,11 +829,16 @@ static int http_open_network(char *url, FILE **httpfile, char *contentencoding,
   strcpy(turl,"http://");
   strncat(turl,url,MAXLEN - 8);
   if (NET_ParseUrl(turl,proto,host,&port,fn)) {
-    snprintf(errorstr,MAXLEN,"URL Parse Error (http_open) %s",url);
+    snprintf(errorstr,MAXLEN,"URL Parse Error (http_open_network) %s",url);
     ffpmsg(errorstr);
     return (FILE_NOT_OPENED);
   }
 
+  if (strchr(fn,'\r') != NULL || strchr(fn,'\n') != NULL) {
+     ffpmsg("Invalid characters detected in filename (http_open_network)");
+     return(FILE_NOT_OPENED);
+  }
+  
   /* Do we have a user:password combo ? */
     strcpy(userpass, url);
   if ((scratchstr = strchr(userpass, '@')) != NULL) {
@@ -829,7 +859,7 @@ static int http_open_network(char *url, FILE **httpfile, char *contentencoding,
   /* Connect to the remote host */
   if (proxy) {
     if (NET_ParseUrl(proxy,pproto,phost,&pport,pfn)) {
-      snprintf(errorstr,MAXLEN,"URL Parse Error (http_open) %s",proxy);
+      snprintf(errorstr,MAXLEN,"URL Parse Error (http_open_network) %s",proxy);
       ffpmsg(errorstr);
       return (FILE_NOT_OPENED);
     }
@@ -1182,7 +1212,7 @@ int https_open(char *filename, int rwmode, int *handle)
 int https_file_open(char *filename, int rwmode, int *handle)
 {
   int ii, flen;
-  char errStr[MAXLEN];
+  char errStr[MAXLEN], *tstEnv=0;
   curlmembuf inmem;
   
   /* Check if output file is actually a memory file */
@@ -1226,6 +1256,18 @@ int https_file_open(char *filename, int rwmode, int *handle)
   alarm(0);
   signal(SIGALRM, SIG_DFL);
   
+  tstEnv = getenv("CFITSIO_DISABLE_COPY_RESTRICT");
+  if (!tstEnv || tstEnv[0] != '1')
+  {
+     if (!check_is_mem_fits(inmem.memory, inmem.size))
+     {
+        ffpmsg("Input file is not a FITS file.  Cannot create output file (https_file_open)");
+        ffpmsg(netoutfile);
+        free(inmem.memory);
+        return (FILE_NOT_OPENED);
+     }
+  }
+
   if (*netoutfile == '!')
   {
      /* user wants to clobber disk file, if it already exists */
@@ -1508,7 +1550,7 @@ int ftps_open(char *filename, int rwmode, int *handle)
 int ftps_file_open(char *filename, int rwmode, int *handle)
 {
   int ii, flen, status=0;
-  char errStr[MAXLEN];
+  char errStr[MAXLEN], *tstEnv=0;
   char localFilename[MAXLEN]; /* may have .gz or .Z appended */
   unsigned char firstByte=0,secondByte=0;
   curlmembuf inmem;
@@ -1564,6 +1606,18 @@ int ftps_file_open(char *filename, int rwmode, int *handle)
      return (FILE_NOT_OPENED);
   }
   
+  tstEnv = getenv("CFITSIO_DISABLE_COPY_RESTRICT");
+  if (!tstEnv || tstEnv[0] != '1')
+  {
+     if (!check_is_mem_fits(inmem.memory, inmem.size))
+     {
+        ffpmsg("Input file is not a FITS file.  Cannot create output file (ftps_file_open)");
+        ffpmsg(netoutfile);
+        free(inmem.memory);
+        return (FILE_NOT_OPENED);
+     }
+  }
+
   if (strcmp(localFilename, filename))
   {
      /* ftps_open_network has already checked that this is safe to
@@ -1664,7 +1718,7 @@ int ftps_file_open(char *filename, int rwmode, int *handle)
 int ftps_compress_open(char *filename, int rwmode, int *handle)
 {
    int ii, flen, status=0;
-  char errStr[MAXLEN];
+  char errStr[MAXLEN], *tstEnv=0;
   char localFilename[MAXLEN]; /* may have .gz or .Z appended */
   unsigned char firstByte=0,secondByte=0;
   curlmembuf inmem;
@@ -1725,6 +1779,18 @@ int ftps_compress_open(char *filename, int rwmode, int *handle)
   if ((firstByte == 0x1f && secondByte == 0x8b) || 
         strstr(localFilename,".gz") || strstr(localFilename,".Z"))
   {
+     tstEnv = getenv("CFITSIO_DISABLE_COPY_RESTRICT");
+     if (!tstEnv || tstEnv[0] != '1')
+     {
+        if (!check_is_mem_fits(inmem.memory, inmem.size))
+        {
+           ffpmsg("Input file is not a FITS file.  Cannot create output file (ftps_compress_open)");
+           ffpmsg(netoutfile);
+           free(inmem.memory);
+           return (FILE_NOT_OPENED);
+        }
+     }
+     
      if (*netoutfile == '!')
      {
         /* user wants to clobber disk file, if it already exists */
@@ -2277,6 +2343,7 @@ int ftp_file_open(char *url, int rwmode, int *handle)
   FILE *command;
   char errorstr[MAXLEN];
   char recbuf[MAXLEN];
+  char *tstEnv=0;
   long len;
   int sock;
   int ii, flen, status;
@@ -2329,6 +2396,17 @@ int ftp_file_open(char *url, int rwmode, int *handle)
   }
   closeftpfile++;
   closecommandfile++;
+
+  tstEnv = getenv("CFITSIO_DISABLE_COPY_RESTRICT");
+  if (!tstEnv || tstEnv[0] != '1')
+  {
+     if (!check_is_file_fits(ftpfile))
+     {
+       ffpmsg("Input file is not a FITS file.  Cannot create output file (ftp_file_open)");
+       ffpmsg(netoutfile);
+       goto error;
+     }
+  }  
 
   if (*netoutfile == '!')
   {
@@ -2448,6 +2526,7 @@ int ftp_compress_open(char *url, int rwmode, int *handle)
   FILE *command;
   char errorstr[MAXLEN];
   char recbuf[MAXLEN];
+  char *tstEnv=0;
   long len;
   int ii, flen, status;
   int sock;
@@ -2499,6 +2578,17 @@ int ftp_compress_open(char *url, int rwmode, int *handle)
   }
   closeftpfile++;
   closecommandfile++;
+
+  tstEnv = getenv("CFITSIO_DISABLE_COPY_RESTRICT");
+  if (!tstEnv || tstEnv[0] != '1')
+  {
+     if (!check_is_file_fits(ftpfile))
+     {
+       ffpmsg("Input file is not a FITS file.  Cannot create output file (ftp_compress_open)");
+       ffpmsg(netoutfile);
+       goto error;
+     }
+  }  
 
   /* Now, what do we do with the file */
   firstchar = fgetc(ftpfile);
@@ -2634,7 +2724,7 @@ static int ftp_open_network(char *filename, FILE **ftpfile, FILE **command, int 
   #ifdef _REENTRANT
   char *saveptr;
   #endif
-  char ip[SHORTLEN];
+  char ip[MAXLEN];
   char turl[MAXLEN];
   int port;
   int ii,tryingtologin = 1;
@@ -2918,7 +3008,7 @@ int ftp_file_exist(char *filename)
   #ifdef _REENTRANT
   char *saveptr;
   #endif
-  char ip[SHORTLEN];
+  char ip[MAXLEN];
   char turl[MAXLEN];
   int port;
   int ii, tryingtologin = 1;

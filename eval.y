@@ -6462,30 +6462,27 @@ static char ellipse(double xcen, double ycen, double xrad, double yrad,
 	    char *src_str,  int src_len,
 	    int pos)
 {
-  /* char fill_char = ' '; */
-  char fill_char = '\0';
+  int endpos=0;
+  
   if (src_len == 0) { src_len = strlen(src_str); } /* .. if constant */
 
-  /* Fill destination with blanks */
   if (pos < 0) { 
     yyerror(0, lParse, "STRMID(S,P,N) P must be 0 or greater");
     return -1;
   }
   if (pos > src_len || pos == 0) {
-    /* pos==0: blank string requested */
-    memset(dest_str, fill_char, dest_len);
-  } else if (pos+dest_len > src_len) {
-    /* Copy a subset */
+    /* pos==0: null string requested */
+    endpos=0;
+  } else if (pos-1+dest_len > src_len) {
+    /* Copy only to end of src_str */
     int nsub = src_len-pos+1;
-    int npad = dest_len - nsub;
+    endpos=nsub;
     memcpy(dest_str, src_str+pos-1, nsub);
-    /* Fill remaining string with blanks */
-    memset(dest_str+nsub, fill_char, npad);
   } else {
-    /* Full string copy */
+    endpos=dest_len;
     memcpy(dest_str, src_str+pos-1, dest_len);
   }
-  dest_str[dest_len] = '\0'; /* Null-terminate */
+  dest_str[endpos] = '\0'; /* Null-terminate */
 
   return 0;
 }

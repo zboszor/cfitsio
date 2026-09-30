@@ -1781,6 +1781,13 @@ int ffgtam(fitsfile *gfptr,   /* FITS file pointer to grouping table HDU     */
 		  *status = fits_read_key_longstr(mfptr,keyword,&tgrplc,card,
 						  status);
 		  if (0 == *status) {
+                    if (strlen(tgrplc) > FLEN_FILENAME-1)
+                    {
+                       ffpmsg("GRPLCn string is too long (ffgtam)");
+                       *status = URL_PARSE_ERROR;
+                       free(tgrplc);
+                       continue;
+                    }
 		    strcpy(grplc,tgrplc);
 		    free(tgrplc);
 		  }

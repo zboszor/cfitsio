@@ -132,7 +132,7 @@ oct		([oO][01234567xX]+)
 hex		([hH][0123456789aAbBcCdDeEfFxX]+)
 bitconst        (0b[01]+)
 hexconst        (0x[0123456789aAbBcCdDeEfF]+)
-octconst        (0o]+)
+octconst        (0o[01234567]+)
 integer		[0-9]+
 boolean         (t|f|T|F)
 real		([0-9]*"."[0-9]+)|([0-9]*"."*[0-9]+[eEdD][+-]?[0-9]+)|([0-9]*".")
@@ -161,11 +161,21 @@ nl		\n
 {bit}		{
                   int len;
                   len = strlen(yytext);
+                  len--;
 		  while (yytext[len] == ' ')
 			len--;
-                  len = len - 1;
-		  strncpy(yylval->str,&yytext[1],len);
-		  yylval->str[len] = '\0';
+                  if (len >= MAX_STRLEN) {
+		     char errMsg[100];
+		     yylParse->status = PARSE_SYNTAX_ERR;
+		     strcpy (errMsg,"Bit string exceeds maximum length: '");
+		     strncat(errMsg, yytext, 20);
+		     strcat (errMsg,"...'");
+		     ffpmsg (errMsg);
+                     yylval->str[0] = '\0';
+                  } else {
+		     strncpy(yylval->str,&yytext[1],len);
+		     yylval->str[len] = '\0';
+                  }
 		  return( BITSTR );
 		}
 {oct}		{
@@ -182,9 +192,9 @@ nl		\n
 		    ffpmsg (errMsg);
 		    len = 0;
 		  } else {
+		    len = len - 1;
 		    while (yytext[len] == ' ')
 		      len--;
-		    len = len - 1;
 		    strncpy(tmpstring,&yytext[1],len);
 		  }
                   tmpstring[len] = '\0';
@@ -272,9 +282,9 @@ nl		\n
 		    ffpmsg (errMsg);
 		    len = 0;
 		  } else {
+                    len = len - 1;
 		    while (yytext[len] == ' ')
 		      len--;
-		    len = len - 1;
 		    strncpy(tmpstring,&yytext[1],len);
 		  }
                   tmpstring[len] = '\0';
@@ -453,9 +463,20 @@ nl		\n
 		     int result;
                      if (yytext[1] == '$') {
                         len = strlen(yytext) - 3;
-                        yylval->str[0]     = '#';
-                        strncpy(yylval->str+1,&yytext[2],len);
-                        yylval->str[len+1] = '\0';
+                        if (len >= MAX_STRLEN-1)
+                        {
+		           char errMsg[100];
+		           yylParse->status = PARSE_SYNTAX_ERR;
+		           strcpy (errMsg,"Keyword string exceeds maximum length: '");
+		           strncat(errMsg, yytext, 20);
+		           strcat (errMsg,"...'");
+		           ffpmsg (errMsg);
+                           yylval->str[0] = '\0';
+                        } else {
+                           yylval->str[0]     = '#';
+                           strncpy(yylval->str+1,&yytext[2],len);
+                           yylval->str[len+1] = '\0';
+                        }
                         yytext = yylval->str;
 		     }
                      result = (*yylParse->getData)(yylParse, yytext, (yylval));
@@ -481,8 +502,18 @@ nl		\n
 		}
 {variable}	{
 		 int    len,type;
-
-                 if (yytext[0] == '$') {
+		 
+                 len=strlen(yytext);
+                 if (len >= MAX_STRLEN) {
+		    char errMsg[100];
+		    yylParse->status = PARSE_SYNTAX_ERR;
+		    strcpy (errMsg,"Variable exceeds maximum length: '");
+		    strncat(errMsg, yytext, 20);
+		    strcat (errMsg,"...'");
+		    ffpmsg (errMsg);
+                    yylval->str[0] = '\0';
+		    yytext = yylval->str;
+                 } else if (yytext[0] == '$') {
 		    len = strlen(yytext) - 2;
 		    strncpy(yylval->str,&yytext[1],len);
 		    yylval->str[len] = '\0';
@@ -493,9 +524,21 @@ nl		\n
 		}
 {function}	{
                   char *fname;
-		  int len=0;
+		  int len=strlen(yytext);
                   fname = &(yylval->str[0]);
-		  while( (fname[len]=toupper(yytext[len])) ) len++;
+                  if (len >= MAX_STRLEN) {
+		    char errMsg[100];
+		    yylParse->status = PARSE_SYNTAX_ERR;
+		    strcpy (errMsg,"Function exceeds maximum length: '");
+		    strncat(errMsg, yytext, 20);
+		    strcat (errMsg,"...'");
+		    ffpmsg (errMsg);
+		    len = 0;
+                    fname[0] = '\0';
+                  } else {
+                     len = 0;
+		     while( (fname[len]=toupper(yytext[len])) ) len++;
+                  }
 
                   if(      FSTRCMP(fname,"BOX(")==0 
                         || FSTRCMP(fname,"CIRCLE(")==0 
